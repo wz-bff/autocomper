@@ -8,6 +8,8 @@ import numpy as np
 # import onnx
 import onnxruntime as ort
 
+from file_utils import get_bundle_filepath
+
 SAMPLE_RATE = 32000
 
 is_windows = False
@@ -20,6 +22,8 @@ elif current_platform == "Darwin":  # macOS
     ffmpeg_path = r"./ffmpeg/osx/ffmpeg"
 else:  # Linux
     ffmpeg_path = r"./ffmpeg/linux/ffmpeg"
+
+ffmpeg_path = get_bundle_filepath(ffmpeg_path)
 
 def seconds_to_hms(seconds):
     hours, remainder = divmod(seconds, 60 * 60)

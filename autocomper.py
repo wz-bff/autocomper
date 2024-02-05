@@ -16,11 +16,7 @@ import sv_ttk
 from compile import compile_vid
 from custom_tooltip import CustomHovertip
 from sound_reader import get_timestamps
-
-if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
-    bundle_dir = str(sys._MEIPASS)
-else:
-    bundle_dir = None
+from file_utils import get_bundle_filepath
 
 
 class VideoProcessorApp:
@@ -34,7 +30,7 @@ class VideoProcessorApp:
         self.root.geometry('1000x800')
 
         # Enforce minimum window size
-        self.root.resizable(False, False)
+        self.root.resizable(False, True)
 
         # Create a grid layout
         self.root.grid_rowconfigure(0, weight=1)
@@ -105,57 +101,64 @@ class VideoProcessorApp:
         ttk.Separator(self.left_frame, orient="horizontal").pack(
             fill=tk.X, pady=15)
 
-        ttk.Label(self.left_frame, text="Options:",
-                  font=(None, 12, "bold")).pack()
+        self.text_options_frame = ttk.Frame(self.left_frame)
+
+        ttk.Label(self.text_options_frame, text="Model Options:",
+                  font=(None, 11, "bold")).pack(pady=(10, 10))
 
         # Model Dropdown
-        ttk.Label(self.left_frame, text="Model:", font=(
-            None, 10, "bold")).pack(pady=(10, 1))
+        ttk.Label(self.text_options_frame, text="Model:", font=(
+            None, 10, "bold")).pack(pady=(0, 1))
         self.model_dropdown = ttk.OptionMenu(
-            self.left_frame, self.model, "bdetectionmodel_05_01_23.onnx")
+            self.text_options_frame, self.model, "bdetectionmodel_05_01_23.onnx")
         self.model_dropdown.pack()
 
         # Precision Entry
-        ttk.Label(self.left_frame, text="Precision:",
+        ttk.Label(self.text_options_frame, text="Precision:",
                   font=(None, 10, "bold")).pack(pady=(10, 1))
         self.precision_entry = ttk.Entry(
-            self.left_frame, textvariable=self.precision)
+            self.text_options_frame, textvariable=self.precision)
         self.precision_entry.pack()
 
         # Block Size Entry
-        ttk.Label(self.left_frame, text="Block Size (CAUTION):", font=(
+        ttk.Label(self.text_options_frame, text="Block Size (CAUTION):", font=(
             None, 10, "bold")).pack(pady=(10, 1))
         self.block_size_entry = ttk.Entry(
-            self.left_frame, textvariable=self.block_size)
+            self.text_options_frame, textvariable=self.block_size)
         self.block_size_entry.pack()
 
         # Threshold Entry
-        ttk.Label(self.left_frame, text="Threshold:",
+        ttk.Label(self.text_options_frame, text="Threshold:",
                   font=(None, 10, "bold")).pack(pady=(10, 1))
         self.threshold_entry = ttk.Entry(
-            self.left_frame, textvariable=self.threshold)
+            self.text_options_frame, textvariable=self.threshold)
         self.threshold_entry.pack()
 
-        self.checkbox_frame = ttk.Frame(self.left_frame)
-        self.checkbox_frame.pack()
+        self.text_options_frame.pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
 
-        ttk.Label(self.checkbox_frame, text="Misc. Options:",
-                  font=(None, 10, "bold")).pack(pady=(10, 0))
+        separator = ttk.Separator(self.left_frame, orient='vertical')
+        separator.pack(side='left', fill='y', padx=(0, 15), pady=0)
+
+        self.checkbox_frame = ttk.Frame(self.left_frame)
+        self.checkbox_frame.pack(anchor=tk.W)
+
+        ttk.Label(self.checkbox_frame, text="Video/Audio Options:",
+                  font=(None, 11, "bold")).pack(pady=(10, 10), padx=0)
 
         # Merge Clips Checkbox
         self.merge_clips_checkbox = ttk.Checkbutton(
             self.checkbox_frame, text="Merge Nearby Clips", variable=self.merge_clips)
-        self.merge_clips_checkbox.pack()
+        self.merge_clips_checkbox.pack(anchor=tk.W)
 
         # Merge Clips Checkbox
         self.combine_checkbox = ttk.Checkbutton(
             self.checkbox_frame, text="Combine Input Videos", variable=self.combine_vids, command=self.clear_output)
-        self.combine_checkbox.pack()
+        self.combine_checkbox.pack(anchor=tk.W)
 
         # Normalize audio checkbox
         self.normalize_audio_checkbox = ttk.Checkbutton(
             self.checkbox_frame, text="Normalize Audio", variable=self.normalize_audio)
-        self.normalize_audio_checkbox.pack()
+        self.normalize_audio_checkbox.pack(anchor=tk.W)
 
         # Create a Checkbutton for custom resolution
         self.use_custom_resolution = tk.BooleanVar()
@@ -167,10 +170,10 @@ class VideoProcessorApp:
         self.custom_resolution_height_var.set(1080)
 
         self.checkbox_frame_three = ttk.Frame(self.left_frame)
-        self.checkbox_frame_three.pack()
+        self.checkbox_frame_three.pack(anchor=tk.W)
         self.custom_resolution_checkbox = ttk.Checkbutton(
             self.checkbox_frame_three, text="Use Custom Output Resolution", variable=self.use_custom_resolution, command=self.toggle_text_boxes)
-        self.custom_resolution_checkbox.pack()
+        self.custom_resolution_checkbox.pack(anchor=tk.W)
 
         self.container_frame = ttk.Frame(self.checkbox_frame_three)
 
@@ -215,7 +218,7 @@ class VideoProcessorApp:
         self.process_button.grid(row=0, column=0, pady=(5, 20), padx=(0, 2.5))
 
         # Cancel Button
-        stop_image_path = os.path.join("img", "stop.png")
+        stop_image_path = get_bundle_filepath(os.path.join("img", "stop.png"))
         stop_image = Image.open(stop_image_path).convert(mode='RGBA')
         stop_image = stop_image.resize((25, 25))
         stop_photo = ImageTk.PhotoImage(stop_image)
@@ -225,26 +228,6 @@ class VideoProcessorApp:
         self.cancel_button.image = stop_photo
 
         self.cancel_button.grid(row=0, column=1, pady=(5, 20), padx=(2.5, 0))
-
-        # Tooltips galore
-        prec_tooltip = CustomHovertip(
-            self.precision_entry, 'Precision (in ms) of the timestamp selection process (higher is less precise)')
-        block_tooltip = CustomHovertip(
-            self.block_size_entry, 'Amount of seconds (of samples) to process at once.\nLarger sizes offer better performance, but will consume significantly more memory.\nWARNING: Setting this too high for very long videos will use up a LOT of memory; only turn this up if you know your computer can handle it.')
-        thres_tooltip = CustomHovertip(
-            self.threshold_entry, 'The confidence threshold for a sound to be reported from 0-1.')
-        merge_tooltip = CustomHovertip(
-            self.merge_clips_checkbox, 'If timestamps are close together, combine them into one longer clip')
-        comb_tooltip = CustomHovertip(
-            self.combine_checkbox, 'Combine everything into one output video.\nIf unchecked, you will instead select a directory, and output\nvideos will be saved as (original_title)_comped.mp4 inside the directory.')
-        res_tooltip = CustomHovertip(self.custom_resolution_checkbox,
-                                     '(BUGGY) Sets the resolution of the output video(s).\nMost useful when combining videos\nof different resolutions.')
-        norm_tooltip = CustomHovertip(
-            self.normalize_audio_checkbox, 'Normalizes the audio of each clip to 0 dB. Use this if your clips have wildly different volumes.')
-        output_tooltip = CustomHovertip(
-            self.output_location_label, f"{self.output_video_path.get()}")
-        cancel_tooltip = CustomHovertip(
-            self.cancel_button, 'Cancel the current compilation process.')
 
         # Progress bar for final render
         self.ui_bar = ttk.Progressbar(right_frame, orient='horizontal')
@@ -275,6 +258,26 @@ class VideoProcessorApp:
         sys.stdout = StdoutRedirector(self.stdout_text)  # TODO: Change this
 
         self.active_thread = None
+
+        # Tooltips galore
+        prec_tooltip = CustomHovertip(
+            self.precision_entry, 'Precision (in ms) of the timestamp selection process (higher is less precise)')
+        block_tooltip = CustomHovertip(
+            self.block_size_entry, 'Amount of seconds (of samples) to process at once.\nLarger sizes offer better performance, but will consume significantly more memory.\nWARNING: Setting this too high for very long videos will use up a LOT of memory; only turn this up if you know your computer can handle it.')
+        thres_tooltip = CustomHovertip(
+            self.threshold_entry, 'The confidence threshold for a sound to be reported from 0-1.')
+        merge_tooltip = CustomHovertip(
+            self.merge_clips_checkbox, 'If timestamps are close together, combine them into one longer clip')
+        comb_tooltip = CustomHovertip(
+            self.combine_checkbox, 'Combine everything into one output video.\nIf unchecked, you will instead select a directory, and output\nvideos will be saved as (original_title)_comped.mp4 inside the directory.')
+        res_tooltip = CustomHovertip(self.custom_resolution_checkbox,
+                                     '(BUGGY) Sets the resolution of the output video(s).\nMost useful when combining videos\nof different resolutions.')
+        norm_tooltip = CustomHovertip(
+            self.normalize_audio_checkbox, 'Normalizes the audio of each clip to 0 dB. Use this if your clips have wildly different volumes.')
+        output_tooltip = CustomHovertip(
+            self.output_location_label, f"{self.output_video_path.get()}")
+        cancel_tooltip = CustomHovertip(
+            self.cancel_button, 'Cancel the current compilation process.')
 
         self.disable_while_processing = [
             self.add_button,
@@ -436,9 +439,7 @@ class VideoProcessorApp:
             normalize = self.normalize_audio.get()
 
             # Get model location if in a compiled app
-            if bundle_dir:
-                selected_model = str(
-                    Path.cwd() / Path(sys._MEIPASS) / selected_model)
+            selected_model = get_bundle_filepath(selected_model)
 
             self.stdout_text["state"] = tk.NORMAL
             self.stdout_text.delete("1.0", tk.END)
