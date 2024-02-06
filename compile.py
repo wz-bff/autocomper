@@ -78,10 +78,23 @@ def compile_vid(dict_list, output, merge_clips=True, combine_vids=True, res=None
 
                     final = resize(
                         final, width=new_size[0], height=new_size[1])
-                    horiz_margin = max(abs(int((res[0] - new_size[0])/2)), 0)
-                    vert_margin = max(abs(int((res[1] - new_size[1])/2)), 0)
+                    horiz_margin = max(abs((res[0] - new_size[0])), 0)
+                    vert_margin = max(abs((res[1] - new_size[1])), 0)
+
+                    horiz_margin = [horiz_margin, horiz_margin]
+                    if horiz_margin[0] % 2 == 1:
+                        horiz_margin[0] += 1
+
+                    horiz_margin = [int(x / 2) for x in horiz_margin]
+
+                    vert_margin = [vert_margin, vert_margin]
+                    if vert_margin[0] % 2 == 1:
+                        vert_margin[0] += 1
+
+                    vert_margin = [int(x / 2) for x in vert_margin]
+
                     final = margin(
-                        final, left=horiz_margin, right=horiz_margin, top=vert_margin, bottom=vert_margin)
+                        final, left=horiz_margin[0], right=horiz_margin[1], top=vert_margin[0], bottom=vert_margin[1])
 
                 # Very jank normalization that barely does anything
                 if normalize:
@@ -141,11 +154,24 @@ def compile_vid(dict_list, output, merge_clips=True, combine_vids=True, res=None
                     clips[i] = resize(clip, width=new_sizes[i]
                                       [0], height=new_sizes[i][1])
                     horiz_margin = max(
-                        abs(int((max_size[0] - new_sizes[i][0])/2)), 0)
+                        abs(int((max_size[0] - new_sizes[i][0]))), 0)
                     vert_margin = max(
-                        abs(int((max_size[1] - new_sizes[i][1])/2)), 0)
+                        abs(int((max_size[1] - new_sizes[i][1]))), 0)
+
+                    horiz_margin = [horiz_margin, horiz_margin]
+                    if horiz_margin[0] % 2 == 1:
+                        horiz_margin[0] += 1
+
+                    horiz_margin = [int(x / 2) for x in horiz_margin]
+
+                    vert_margin = [vert_margin, vert_margin]
+                    if vert_margin[0] % 2 == 1:
+                        vert_margin[0] += 1
+
+                    vert_margin = [int(x / 2) for x in vert_margin]
+
                     clips[i] = margin(
-                        clips[i], left=horiz_margin, right=horiz_margin, top=vert_margin, bottom=vert_margin)
+                        clips[i], left=horiz_margin[0], right=horiz_margin[1], top=vert_margin[0], bottom=vert_margin[1])
 
                 final = concatenate_videoclips(clips, method="compose")
                 final.write_videofile(
