@@ -31,10 +31,10 @@ Ensure that [Python](https://www.python.org/downloads/windows/) is installed, th
     $ python -m venv .env
     $ .\.env\Scripts\Activate.ps1
     $ pip install -r requirements.txt
-    $ pyinstaller --add-data ".\bdetectionmodel_05_01_23.onnx;." --add-data "ffmpeg;ffmpeg" --collect-data sv_ttk --add-data "img;img" --noconfirm --paths .\.env\ --noconsole --icon ".\app.ico" --onedir --contents-directory . --name AutoComper autocomper.py
+    $ python setup.py build
 
 
-The executable is written to `dist/AutoComper/AutoComper.exe`.
+The executable is written to `build/exe.win-.../autocomper.exe`.
 
 ### Linux
 
@@ -48,15 +48,15 @@ Largely the same as Windows. First, ensure that `python3` is installed:
     $ python -m venv .env
     $ source .env/bin/activate
     $ pip install -r requirements.txt
-    $ pyinstaller --add-data "bdetectionmodel_05_01_23.onnx:." --add-data "ffmpeg:ffmpeg" --collect-data sv_ttk --add-data "img:img" --noconfirm --noconsole --paths ".env" --onedir --contents-directory . --hidden-import=tkinter --hidden-import=PIL._tkinter_finder --name AutoComper autocomper.py
+    $ python setup.py build
 
  You can also simply run:
  
     $ ./build_linux
 
-The executable is written to `dist/AutoComper/AutoComper`. If permission is denied, please run the following command from the root directory.
+The executable is written to `build/exe.linux-.../autocomper`. If permission is denied, please run the following command from the root directory.
 
-    $ chmod +x dist/AutoComper/AutoComper
+    $ chmod +x build/exe.linux-.../autocomper
 
 ### OSX
 

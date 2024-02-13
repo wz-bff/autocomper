@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy as np
 # import onnx
 import onnxruntime as ort
+from typing import Generator, Any
 
 from file_utils import get_bundle_filepath
 
@@ -24,6 +25,7 @@ else:  # Linux
     ffmpeg_path = r"./ffmpeg/linux/ffmpeg"
 
 ffmpeg_path = get_bundle_filepath(ffmpeg_path)
+
 
 def seconds_to_hms(seconds):
     hours, remainder = divmod(seconds, 60 * 60)
@@ -47,7 +49,7 @@ def subsample(frame: np.ndarray, scale_factor: int) -> np.ndarray:
 
 
 def get_segments(scores: np.ndarray, precision: int, threshold: float,
-                 offset: int) -> list:
+                 offset: int) -> Generator[Any, Any, Any]:
 
     seq_iter = iter(np.where(scores > threshold)[0])
     try:
