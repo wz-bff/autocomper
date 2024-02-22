@@ -1,22 +1,22 @@
+import json
 import os
 import sys
-from pathlib import Path
-
-from PIL import Image, ImageTk
-
 import tkinter as tk
+import webbrowser
+from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
+import requests
+import sv_ttk
+from colorama import Fore, Style
 from kthread import KThread
+from PIL import Image, ImageTk
 from proglog import ProgressBarLogger
 
-from colorama import Fore, Style
-
-import sv_ttk
 from compile import compile_vid
 from custom_tooltip import CustomHovertip
-from sound_reader import get_timestamps
 from file_utils import get_bundle_filepath
+from sound_reader import get_timestamps
 
 
 class VideoProcessorApp:
@@ -44,6 +44,8 @@ class VideoProcessorApp:
         # Create a vertical separator
         separator = ttk.Separator(root, orient='vertical')
         separator.grid(row=0, column=1, sticky='ns')
+
+        self.models_dir = "models/"
 
         self.precision = tk.IntVar(value=100)
         self.block_size = tk.IntVar(value=600)
@@ -107,10 +109,23 @@ class VideoProcessorApp:
                   font=(None, 11, "bold")).pack(pady=(10, 10))
 
         # Model Dropdown
+        # First, get list of available models
+        models = os.listdir(self.models_dir)
+
+        # Filter out directories, keep only onnx files
+        models = [item for item in models if os.path.isfile(
+            os.path.join(self.models_dir, item))]
+
+        models = [item for item in models if item.endswith('.onnx')]
+
         ttk.Label(self.text_options_frame, text="Model:", font=(
             None, 10, "bold")).pack(pady=(0, 1))
-        self.model_dropdown = ttk.OptionMenu(
-            self.text_options_frame, self.model, "bdetectionmodel_05_01_23.onnx")
+
+        self.model_dropdown = ttk.Combobox(
+            self.text_options_frame, values=models, textvariable=self.model, state="readonly", width=30)
+
+        self.model_dropdown.current(0)  # default dropdown option
+
         self.model_dropdown.pack()
 
         # Precision Entry
@@ -433,7 +448,7 @@ class VideoProcessorApp:
             precision = self.precision.get()
             block_size = self.block_size.get()
             threshold = self.threshold.get()
-            selected_model = self.model.get()
+            selected_model = os.path.join(self.models_dir, self.model.get())
             merge_clips = self.merge_clips.get()
             combine = self.combine_vids.get()
             normalize = self.normalize_audio.get()

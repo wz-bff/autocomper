@@ -111,13 +111,32 @@ def load_audio(file: str, sr: int, frame_count: int):
     if is_windows:
         subprocess_options['creationflags'] = subprocess.CREATE_NO_WINDOW
 
-    ffmpeg_process = subprocess.run(cmd, **subprocess_options)
+    chunk_size = frame_count * 2
 
-    return np.frombuffer(ffmpeg_process.stdout, dtype=np.int16).reshape(
-        1, -1).astype(np.float32) / (2**15)
+    process = subprocess.Popen(
+        cmd, bufsize=1, **subprocess_options)
+    while True:
+        chunk = process.stdout.read(chunk_size)
+        if not chunk:
+            break
+        yield chunk
+    process.stdout.close()
+    return_code = process.wait()
+    if return_code:
+        raise subprocess.CalledProcessError(return_code, cmd)
 
 
 def get_timestamps(file, precision=100, block_size=600, threshold=0.90, focus_idx=58, model="bdetectionmodel_05_01_23"):
+    # Input checking
+    if precision < 0:
+        raise Exception("Precision must be a positive number!")
+
+    if not (threshold >= 0 and threshold <= 1):
+        raise Exception("Threshold must be between 0 and 1!")
+
+    if block_size < 0:
+        raise Exception("Block size must be a positive number!")
+
     sess_options = ort.SessionOptions()
     sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
 
@@ -127,14 +146,17 @@ def get_timestamps(file, precision=100, block_size=600, threshold=0.90, focus_id
 
     offset = 0
     blocks = load_audio(file, SAMPLE_RATE, SAMPLE_RATE * block_size)
-    np.array_split(blocks, block_size)
 
     info = {'filename': file, 'timestamps': []}
 
     for block in blocks:
-        block = block[np.newaxis, :]
-        if block.shape[1] >= SAMPLE_RATE:
-            ort_inputs = {'input': block}
+        samples = np.frombuffer(block, dtype=np.int16)
+        samples = samples.reshape(1, -1)
+        samples = samples / (2**15)
+        samples = samples.astype(np.float32)
+
+        if samples.shape[1] >= SAMPLE_RATE:
+            ort_inputs = {'input': samples}
             framewise_output = ort_session.run(['output'], ort_inputs)[0]
 
             preds = framewise_output[0]

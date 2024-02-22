@@ -3,7 +3,7 @@ from cx_Freeze import setup, Executable
 
 base = 'Win32GUI' if sys.platform == 'win32' else None
 
-includefiles = ['ffmpeg/', 'img/', 'bdetectionmodel_05_01_23.onnx']
+includefiles = ['ffmpeg/', 'img/', 'models/']
 includes = []
 excludes = ['Tkinter']
 packages = ['moviepy']
