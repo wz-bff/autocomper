@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 import platform
 import subprocess
-import sys
-from pathlib import Path
 
 import numpy as np
 # import onnx
@@ -25,12 +23,6 @@ else:  # Linux
     ffmpeg_path = r"./ffmpeg/linux/ffmpeg"
 
 ffmpeg_path = get_bundle_filepath(ffmpeg_path)
-
-
-def seconds_to_hms(seconds):
-    hours, remainder = divmod(seconds, 60 * 60)
-    minutes, seconds = divmod(remainder, 60)
-    return f"{int(hours):02d}:{int(minutes):02d}:{int(seconds):02d}"
 
 
 def subsample(frame: np.ndarray, scale_factor: int) -> np.ndarray:
@@ -94,6 +86,18 @@ def compute_timestamps(
     return segments
 
 
+def pad_array_if_needed(arr, desired_size, pad_value=0):
+    current_size = arr.shape[0]
+    if current_size < desired_size:
+        padding_needed = desired_size - current_size
+        padded_array = np.pad(
+            arr, (0, padding_needed), "constant", constant_values=(pad_value,)
+        )
+        return padded_array
+    else:
+        return arr
+
+
 def load_audio(file: str, sr: int, frame_count: int):
     cmd = [
         ffmpeg_path, '-hide_banner', '-loglevel', 'warning', '-i', file,
@@ -149,20 +153,24 @@ def get_timestamps(file, precision=100, block_size=600, threshold=0.90, focus_id
 
     info = {'filename': file, 'timestamps': []}
 
+    frame_count = SAMPLE_RATE * block_size
+
     for block in blocks:
         samples = np.frombuffer(block, dtype=np.int16)
+        samples = pad_array_if_needed(samples, frame_count)
         samples = samples.reshape(1, -1)
         samples = samples / (2**15)
         samples = samples.astype(np.float32)
 
-        if samples.shape[1] >= SAMPLE_RATE:
-            ort_inputs = {'input': samples}
-            framewise_output = ort_session.run(['output'], ort_inputs)[0]
+        ort_inputs = {"input": samples}
+        framewise_output = ort_session.run(["output"], ort_inputs)[0]
 
-            preds = framewise_output[0]
-            info['timestamps'].extend(
-                compute_timestamps(preds, precision, threshold,
-                                   focus_idx, offset))
+        preds = framewise_output[0]
+        info["timestamps"].extend(
+            compute_timestamps(
+                preds, precision, threshold, focus_idx, offset
+            )
+        )
 
         offset += block_size
 

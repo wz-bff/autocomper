@@ -1,9 +1,6 @@
-import json
 import os
 import sys
 import tkinter as tk
-import webbrowser
-from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 import requests
@@ -536,6 +533,7 @@ class VideoProcessorApp:
 
             for elt in self.disable_while_processing:
                 elt["state"] = tk.NORMAL
+
         except Exception as e:
             messagebox.showerror("Error", e)
             print(f"\n{Fore.RED}FAILURE: " + str(e))
