@@ -10,7 +10,7 @@ packages = ['moviepy']
 
 setup(
     name='AutoComper',
-    version='1.0.2',
+    version='1.1',
     description='Automatic Comp Creation Tool',
     author='wz-bff',
     options={'build_exe': {'includes': includes, 'excludes': excludes,
