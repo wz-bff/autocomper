@@ -7,7 +7,7 @@ from shutil import move
 from colorama import Fore, Style
 
 from moviepy.audio.fx.audio_normalize import audio_normalize
-from moviepy.editor import VideoFileClip, concatenate_videoclips
+from moviepy.editor import VideoFileClip, AudioFileClip, concatenate_videoclips, concatenate_audioclips
 from moviepy.video.fx.margin import margin
 from moviepy.video.fx.resize import resize
 
@@ -15,7 +15,8 @@ MERGE_THRESHOLD = 2  # seconds
 BATCH_SIZE = 10
 
 
-def compile_vid(dict_list, output, merge_clips=True, combine_vids=True, res=None, logger=None, normalize=False):
+def compile_vid(dict_list, output, merge_clips=True, combine_vids=True, res=None, logger=None, normalize=False, is_video=True):
+    output_format = ".mp4" if is_video else ".mp3"
     try:
         with tempfile.TemporaryDirectory() as temp_dir:
             tempfiles = []
@@ -31,7 +32,8 @@ def compile_vid(dict_list, output, merge_clips=True, combine_vids=True, res=None
                 clips = []
 
                 try:
-                    curr = VideoFileClip(filename, fps_source="fps")
+                    curr = VideoFileClip(
+                        filename, fps_source="fps") if is_video else AudioFileClip(filename)
                 except Exception as e:
                     print(f"{Fore.RED}Problem reading input video! Continuing...")
                     continue
@@ -57,19 +59,22 @@ def compile_vid(dict_list, output, merge_clips=True, combine_vids=True, res=None
                     clips.append(clip)
 
                 if combine_vids:
-                    temp = temp_dir + str(n) + ".mp4"
+                    temp = temp_dir + str(n) + output_format
                     tempfiles.append(temp)
                 else:
                     temp = str(filename.split('/')[-1]).rsplit('.', 1)
                     temp = '.'.join(temp[:-1])
-                    temp = str(output + '/' + temp + "_comped.mp4")
+                    temp = str(output + '/' + temp + "_comped" + output_format)
 
-                final = concatenate_videoclips(clips, method="chain")
+                if is_video:
+                    final = concatenate_videoclips(clips, method="chain")
+                else:
+                    final = concatenate_audioclips(clips)
 
                 # Resize clips if not combining but using a custom res
                 # Note: we do not resize if we are combining since we can just do it on a
                 # per-video basis instead of a per-clip basis
-                if not combine_vids and res is not None:
+                if is_video and not combine_vids and res is not None:
                     w2, h2 = res
                     w1, h1 = final.size
                     ratio = min(w2/w1, h2/h1)
@@ -101,8 +106,11 @@ def compile_vid(dict_list, output, merge_clips=True, combine_vids=True, res=None
                     normalized_audio = audio_normalize(audio)
                     final = final.set_audio(normalized_audio)
 
-                final.write_videofile(
-                    temp, logger=logger, codec='libx264', audio=True)
+                if is_video:
+                    final.write_videofile(
+                        temp, logger=logger, codec='libx264', audio=True)
+                else:
+                    final.write_audiofile(temp, logger=logger)
 
                 for clip in clips:
                     clip.close()
@@ -113,75 +121,83 @@ def compile_vid(dict_list, output, merge_clips=True, combine_vids=True, res=None
 
             if combine_vids:
                 print(
-                    "Combining individual videos, please do not close the program...", end="")
+                    "Combining individual media, please do not close the program...", end="")
 
                 if len(tempfiles) == 0:
-                    raise (Exception("No timestamps found for any input videos!"))
+                    raise (Exception("No timestamps found for any input media!"))
 
                 clips = []
                 sizes = []
                 for i, file in enumerate(tempfiles):
-                    clip = VideoFileClip(file)
+                    clip = VideoFileClip(
+                        file) if is_video else AudioFileClip(file)
                     clips.append(clip)
-                    sizes.append(clip.size)
+                    if is_video:
+                        sizes.append(clip.size)
 
                 # Resize all clips based on the size of the largest sized clip OR the requested custom resolution
                 # Largest total area; in ties, prioritize larger width over larger height (ex. 1920 x 1080 > 1080 x 1920)
-                if res is not None:
-                    max_size = res
+                if is_video:
+                    if res is not None:
+                        max_size = res
+                    else:
+                        # No custom res + only comping one file means
+                        # we can just move it from the temp directory to the real output
+                        if len(tempfiles) == 1:
+                            for clip in clips:
+                                clip.close()
+                            move(tempfiles[0], output)
+                            del tempfiles[0]
+                            return
+
+                        max_size = max(sorted(sizes, key=lambda x: x[0])[
+                            ::-1], key=lambda x: x[0] * x[1])
+
+                    w2, h2 = max_size
+                    new_sizes = []
+                    for size in sizes:
+                        w1, h1 = size
+                        ratio = min(w2/w1, h2/h1)
+                        new_sizes.append(tuple([floor(ratio*x) for x in size]))
+
+                    for i, clip in enumerate(clips):
+                        clips[i] = resize(clip, width=new_sizes[i]
+                                          [0], height=new_sizes[i][1])
+                        horiz_margin = max(
+                            abs(int((max_size[0] - new_sizes[i][0]))), 0)
+                        vert_margin = max(
+                            abs(int((max_size[1] - new_sizes[i][1]))), 0)
+
+                        horiz_margin = [horiz_margin, horiz_margin]
+                        if horiz_margin[0] % 2 == 1:
+                            horiz_margin[0] += 1
+
+                        horiz_margin = [int(x / 2) for x in horiz_margin]
+
+                        vert_margin = [vert_margin, vert_margin]
+                        if vert_margin[0] % 2 == 1:
+                            vert_margin[0] += 1
+
+                        vert_margin = [int(x / 2) for x in vert_margin]
+
+                        clips[i] = margin(
+                            clips[i], left=horiz_margin[0], right=horiz_margin[1], top=vert_margin[0], bottom=vert_margin[1])
+
+                if is_video:
+                    final = concatenate_videoclips(clips, method="compose")
+                    final.write_videofile(
+                        output, codec='libx264', audio=True, logger=logger)
                 else:
-                    # No custom res + only comping one file means
-                    # we can just move it from the temp directory to the real output
-                    if len(tempfiles) == 1:
-                        for clip in clips:
-                            clip.close()
-                        move(tempfiles[0], output)
-                        del tempfiles[0]
-                        return
-
-                    max_size = max(sorted(sizes, key=lambda x: x[0])[
-                                   ::-1], key=lambda x: x[0] * x[1])
-
-                w2, h2 = max_size
-                new_sizes = []
-                for size in sizes:
-                    w1, h1 = size
-                    ratio = min(w2/w1, h2/h1)
-                    new_sizes.append(tuple([floor(ratio*x) for x in size]))
-
-                for i, clip in enumerate(clips):
-                    clips[i] = resize(clip, width=new_sizes[i]
-                                      [0], height=new_sizes[i][1])
-                    horiz_margin = max(
-                        abs(int((max_size[0] - new_sizes[i][0]))), 0)
-                    vert_margin = max(
-                        abs(int((max_size[1] - new_sizes[i][1]))), 0)
-
-                    horiz_margin = [horiz_margin, horiz_margin]
-                    if horiz_margin[0] % 2 == 1:
-                        horiz_margin[0] += 1
-
-                    horiz_margin = [int(x / 2) for x in horiz_margin]
-
-                    vert_margin = [vert_margin, vert_margin]
-                    if vert_margin[0] % 2 == 1:
-                        vert_margin[0] += 1
-
-                    vert_margin = [int(x / 2) for x in vert_margin]
-
-                    clips[i] = margin(
-                        clips[i], left=horiz_margin[0], right=horiz_margin[1], top=vert_margin[0], bottom=vert_margin[1])
-
-                final = concatenate_videoclips(clips, method="compose")
-                final.write_videofile(
-                    output, codec='libx264', audio=True, logger=logger)
+                    final = concatenate_audioclips(clips)
+                    final.write_audiofile(
+                        output, logger=logger)
 
                 for clip in clips:
                     clip.close()
 
                 final.close()
 
-                print(f"{Fore.GREEN}Done combining videos.")
+                print(f"{Fore.GREEN}Done combining media.")
     except Exception as e:
         raise (Exception(str(e)))
 

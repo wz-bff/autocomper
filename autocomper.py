@@ -3,7 +3,6 @@ import sys
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
-import requests
 import sv_ttk
 from colorama import Fore, Style
 from kthread import KThread
@@ -14,6 +13,11 @@ from compile import compile_vid
 from custom_tooltip import CustomHovertip
 from file_utils import get_bundle_filepath
 from sound_reader import get_timestamps
+
+VIDEO_INPUT = [("Video Files",  "*.mp4 *.avi *.mkv *.m4v *.mov")]
+VIDEO_OUTPUT = [("Video Files", "*.mp4"), ("All Files", "*.*")]
+AUDIO_INPUT = [("Audio Files",  "*.mp3 *.wav *.flac")]
+AUDIO_OUTPUT = [("Audio Files", "*.mp3"), ("All Files", "*.*")]
 
 
 class VideoProcessorApp:
@@ -58,8 +62,28 @@ class VideoProcessorApp:
 
         self.filelist_frame = ttk.Frame(self.left_frame)
 
-        ttk.Label(self.filelist_frame, text="Videos:",
-                  font=(None, 12, "bold")).pack(pady=(0, 15))
+        self.media_toggle_frame = ttk.Frame(self.filelist_frame)
+
+        self.is_video = True
+
+        def toggle_media():
+            if self.is_video:
+                self.toggle_button.config(text='Audio')
+            else:
+                self.toggle_button.config(text='Video')
+            self.is_video = not self.is_video
+            self.uploaded_videos.clear()
+            self.update_listbox()
+            self.clear_output()
+
+        ttk.Label(self.media_toggle_frame, text="Input Media Type:",
+                  font=(None, 12, "bold")).pack()
+
+        self.toggle_button = ttk.Button(
+            self.media_toggle_frame, text="Video", width=20, command=toggle_media)
+        self.toggle_button.pack(pady=10)
+
+        self.media_toggle_frame.pack(fill=tk.BOTH)
 
         self.video_listbox = ttk.Treeview(
             self.filelist_frame, selectmode=tk.EXTENDED, columns="#1", show='')
@@ -77,7 +101,7 @@ class VideoProcessorApp:
 
         # Create buttons for adding and removing videos
         self.add_button = ttk.Button(
-            self.filelist_buttons_frame, text="Add Videos", command=self.add_video)
+            self.filelist_buttons_frame, text="Add Media", command=self.add_video)
         self.up_arrow = ttk.Button(
             self.filelist_buttons_frame, text="↑", width=3, command=self.move_selected_up)
         self.down_arrow = ttk.Button(
@@ -164,13 +188,20 @@ class VideoProcessorApp:
 
         # Merge Clips Checkbox
         self.combine_checkbox = ttk.Checkbutton(
-            self.checkbox_frame, text="Combine Input Videos", variable=self.combine_vids, command=self.clear_output)
+            self.checkbox_frame, text="Combine Input Media", variable=self.combine_vids, command=self.clear_output)
         self.combine_checkbox.pack(anchor=tk.W)
 
         # Normalize audio checkbox
         self.normalize_audio_checkbox = ttk.Checkbutton(
             self.checkbox_frame, text="Normalize Audio", variable=self.normalize_audio)
         self.normalize_audio_checkbox.pack(anchor=tk.W)
+
+        # Save timestamps to file checkbox
+        self.save_txt = tk.BooleanVar()
+
+        self.txt_output_checkbox = ttk.Checkbutton(
+            self.checkbox_frame, text="Save Timestamps to File", variable=self.save_txt)
+        self.txt_output_checkbox.pack(anchor=tk.W)
 
         # Create a Checkbutton for custom resolution
         self.use_custom_resolution = tk.BooleanVar()
@@ -281,15 +312,17 @@ class VideoProcessorApp:
         merge_tooltip = CustomHovertip(
             self.merge_clips_checkbox, 'If timestamps are close together, combine them into one longer clip')
         comb_tooltip = CustomHovertip(
-            self.combine_checkbox, 'Combine everything into one output video.\nIf unchecked, you will instead select a directory, and output\nvideos will be saved as (original_title)_comped.mp4 inside the directory.')
+            self.combine_checkbox, 'Combine everything into one output video.\nIf unchecked, you will instead select a directory, and output\nvideos will be saved as (original_title)_comped inside the directory.')
         res_tooltip = CustomHovertip(self.custom_resolution_checkbox,
-                                     '(BUGGY) Sets the resolution of the output video(s).\nMost useful when combining videos\nof different resolutions.')
+                                     '(BUGGY) Sets the resolution of the output video(s).\nMost useful when combining videos\nof different resolutions. Only applicable if the input media is video.')
         norm_tooltip = CustomHovertip(
             self.normalize_audio_checkbox, 'Normalizes the audio of each clip to 0 dB. Use this if your clips have wildly different volumes.')
         output_tooltip = CustomHovertip(
             self.output_location_label, f"{self.output_video_path.get()}")
         cancel_tooltip = CustomHovertip(
             self.cancel_button, 'Cancel the current compilation process.')
+        timestamps_tooltip = CustomHovertip(
+            self.txt_output_checkbox, 'Save the timestamps to a txt file \'timestamps.txt\' in the output directory.')
 
         self.disable_while_processing = [
             self.add_button,
@@ -298,7 +331,7 @@ class VideoProcessorApp:
             self.down_arrow,
             self.clear_button,
             self.process_button,
-            self.model_dropdown,
+            # self.model_dropdown,
             self.precision_entry,
             self.block_size_entry,
             self.threshold_entry,
@@ -308,7 +341,9 @@ class VideoProcessorApp:
             self.res_height_entry,
             self.res_width_entry,
             self.output_location_button,
-            self.normalize_audio_checkbox
+            self.normalize_audio_checkbox,
+            self.toggle_button,
+            self.txt_output_checkbox
         ]
 
     def clear_output(self):
@@ -324,8 +359,10 @@ class VideoProcessorApp:
             self.container_frame.pack_forget()
 
     def add_video(self):
+        input_formats = VIDEO_INPUT if self.is_video else AUDIO_INPUT
+
         file_names = filedialog.askopenfilenames(
-            filetypes=[("Video Files",  "*.mp4 *.avi *.mkv *.m4v *.mov")])
+            filetypes=input_formats)
         if file_names:
             for file in file_names:
                 self.uploaded_videos.append(file)
@@ -390,8 +427,9 @@ class VideoProcessorApp:
 
     def select_output_location(self):
         if self.combine_vids.get():
-            file_name = filedialog.asksaveasfilename(defaultextension=".mp4", filetypes=[
-                                                     ("Video Files", "*.mp4"), ("All Files", "*.*")])
+            output_formats = VIDEO_OUTPUT if self.is_video else AUDIO_OUTPUT
+            file_name = filedialog.asksaveasfilename(
+                defaultextension=".mp4", filetypes=output_formats)
             if file_name:
                 self.output_video_path.set(file_name)
                 self.output_tooltip = CustomHovertip(
@@ -449,6 +487,7 @@ class VideoProcessorApp:
             merge_clips = self.merge_clips.get()
             combine = self.combine_vids.get()
             normalize = self.normalize_audio.get()
+            save_timestamps = self.save_txt.get()
 
             # Get model location if in a compiled app
             selected_model = get_bundle_filepath(selected_model)
@@ -493,11 +532,19 @@ class VideoProcessorApp:
             # Set values for progress bar
             # If saving individually, or there is only one video
             if not combine or len(self.uploaded_videos) == 1:
-                self.final_bar.reset_total_progress(
-                    4 * len(self.uploaded_videos) * 100)
+                if self.is_video:
+                    total_progress = 4 * len(self.uploaded_videos) * 100
+                else:
+                    total_progress = 2 * len(self.uploaded_videos) * 100
+
+                self.final_bar.reset_total_progress(total_progress)
             else:
-                self.final_bar.reset_total_progress(
-                    4 * (len(self.uploaded_videos) + 1) * 100)
+                if self.is_video:
+                    total_progress = 4 * (len(self.uploaded_videos) + 1) * 100
+                else:
+                    total_progress = 2 * (len(self.uploaded_videos) + 1) * 100
+
+                self.final_bar.reset_total_progress(total_progress)
 
             try:
                 for i, input_video_path in enumerate(self.uploaded_videos):
@@ -514,12 +561,56 @@ class VideoProcessorApp:
                         print(
                             f"{Fore.GREEN}Found 1 clip.")
                     else:
+                        self.final_bar.set_current_progress(
+                            self.final_bar.current_progress + 100)
                         print(
                             f"{Fore.YELLOW}Could not find any clips.")
+
+                # Save txt file with timestamp info
+                if save_timestamps:
+                    try:
+                        if os.path.isdir(output_video_path):
+                            txt_path = output_video_path
+                        else:
+                            txt_path = os.path.dirname(output_video_path)
+
+                        def convert_seconds_to_timestamp(seconds: float) -> str:
+                            hours = int(seconds // 3600)
+                            minutes = int((seconds % 3600) // 60)
+                            remaining_seconds = int(
+                                round((seconds % 3600) % 60))
+
+                            if remaining_seconds == 60:
+                                minutes += 1
+                                remaining_seconds = 0
+
+                            if minutes == 60:
+                                hours += 1
+                                minutes = 0
+
+                            timestamp = f"{hours}:{minutes:02}:{remaining_seconds:02}"
+                            return timestamp
+
+                        timestamps_text = ""
+                        for file in dict_list:
+                            timestamps_text += f"{file['filename']}\n"
+
+                            for ts in file['timestamps']:
+                                timestamps_text += f"{convert_seconds_to_timestamp(ts['start'])}, confidence: {ts['pred']}\n"
+
+                            timestamps_text += "\n"
+
+                        with open(os.path.join(txt_path, "timestamps.txt"), 'w') as file:
+                            file.write(timestamps_text)
+
+                        print(f"{Fore.GREEN}Saved timestamps to timestamps.txt!")
+                    except:
+                        raise
+
                 print(
                     f"Compiling and writing to {output_video_path.split('/')[-1]}...")
                 compile_vid(dict_list, output_video_path, merge_clips,
-                            combine, res, self.final_bar, normalize)
+                            combine, res, self.final_bar, normalize, self.is_video)
                 print(
                     f"{Fore.GREEN}Wrote final video to {output_video_path.split('/')[-1]}.")
                 messagebox.showinfo(
@@ -543,6 +634,7 @@ class VideoProcessorApp:
 
 
 class StdoutRedirector:
+
     def __init__(self, text_widget):
         self.text_widget = text_widget
         self.text_widget["state"] = tk.DISABLED
