@@ -66,6 +66,7 @@ No Mac build yet. Sorry :(
 
 - Figure out how to build the program with `onnxruntime-gpu` instead of having to use boring old `onnxruntime`.
 - Add other filetype options for output besides mp4.
-- Fix the progress bar because it barely works
 - Add multiprocessing to video writing + switch to using raw FFMPEG instead of moviepy for maximum speed
 - Add a "model download center" to avoid having to pack models in with the releases
+- Add "open output" button on completion
+- Can't submit youtube channel URL

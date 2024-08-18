@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import platform
 import subprocess
 
 import numpy as np
@@ -7,22 +6,12 @@ import numpy as np
 import onnxruntime as ort
 from typing import Generator, Any
 
-from file_utils import get_bundle_filepath
+from utils import FFMPEG_PATH
+from proglog import default_bar_logger
 
 SAMPLE_RATE = 32000
 
 is_windows = False
-
-current_platform = platform.system()
-if current_platform == "Windows":
-    ffmpeg_path = r".\ffmpeg\windows\ffmpeg.exe"
-    is_windows = True
-elif current_platform == "Darwin":  # macOS
-    ffmpeg_path = r"./ffmpeg/osx/ffmpeg"
-else:  # Linux
-    ffmpeg_path = r"./ffmpeg/linux/ffmpeg"
-
-ffmpeg_path = get_bundle_filepath(ffmpeg_path)
 
 
 def subsample(frame: np.ndarray, scale_factor: int) -> np.ndarray:
@@ -40,8 +29,12 @@ def subsample(frame: np.ndarray, scale_factor: int) -> np.ndarray:
     return subsample
 
 
-def get_segments(scores: np.ndarray, precision: int, threshold: float,
-                 offset: int) -> Generator[Any, Any, Any]:
+def get_segments(
+    scores: np.ndarray,
+    precision: int,
+    threshold: float,
+    offset: int
+) -> Generator[Any, Any, Any]:
 
     seq_iter = iter(np.where(scores > threshold)[0])
     try:
@@ -100,10 +93,10 @@ def pad_array_if_needed(arr, desired_size, pad_value=0):
 
 def load_audio(file: str, sr: int, frame_count: int):
     cmd = [
-        ffmpeg_path, '-hide_banner', '-loglevel', 'warning', '-i', file,
-        '-filter_complex', '[0:a]asetpts=PTS-STARTPTS[audio]', '-map',
-        '[audio]', '-ac', '1', '-f', 's16le', '-acodec', 'pcm_s16le', '-ar',
-        str(sr), '-'
+        FFMPEG_PATH, '-hide_banner', '-loglevel', 'warning', '-i', file,
+        '-filter_complex', '[0:a]aresample=32000:async=1,asetpts=PTS-STARTPTS,atempo=1,pan=mono|c0=c0[audio]', '-map',
+        '[audio]', '-f', 's16le', '-acodec', 'pcm_s16le', '-ar', str(
+            sr), '-ac', '1', '-bufsize', '128k', '-'
     ]
 
     # Specify subprocess options to suppress the command prompt on Windows
@@ -119,18 +112,29 @@ def load_audio(file: str, sr: int, frame_count: int):
 
     process = subprocess.Popen(
         cmd, bufsize=1, **subprocess_options)
-    while True:
-        chunk = process.stdout.read(chunk_size)
-        if not chunk:
-            break
-        yield chunk
+
+    try:
+        while True:
+            chunk = process.stdout.read(chunk_size)
+            if not chunk:
+                break
+            yield chunk
+    except GeneratorExit:
+        # Thrown if the user cancels the process (i.e. kills the thread)
+        process.terminate()
+        process.wait()
+        return
+
     process.stdout.close()
     return_code = process.wait()
     if return_code:
+        if process.returncode != 0:
+            raise Exception(
+                "Failed to process the file. Either the file does not exist or is corrupted.")
         raise subprocess.CalledProcessError(return_code, cmd)
 
 
-def get_timestamps(file, precision=100, block_size=600, threshold=0.90, focus_idx=58, model="bdetectionmodel_05_01_23"):
+def get_timestamps(file, precision=100, block_size=600, threshold=0.90, focus_idx=58, model="bdetectionmodel_05_01_23", logger=None):
     # Input checking
     if precision < 0:
         raise Exception("Precision must be a positive number!")
@@ -144,16 +148,23 @@ def get_timestamps(file, precision=100, block_size=600, threshold=0.90, focus_id
     sess_options = ort.SessionOptions()
     sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
 
-    ort_session = ort.InferenceSession(model,
-                                       sess_options,
-                                       providers=ort.get_available_providers())
+    ort_session = ort.InferenceSession(
+        model,
+        sess_options,
+        providers=ort.get_available_providers()
+    )
 
     offset = 0
-    blocks = load_audio(file, SAMPLE_RATE, SAMPLE_RATE * block_size)
+
+    blocks = list(load_audio(file, SAMPLE_RATE, SAMPLE_RATE * block_size))
 
     info = {'filename': file, 'timestamps': []}
 
     frame_count = SAMPLE_RATE * block_size
+
+    if logger:
+        bar_logger = default_bar_logger(logger)
+        blocks = bar_logger.iter_bar(block=blocks)
 
     for block in blocks:
         samples = np.frombuffer(block, dtype=np.int16)

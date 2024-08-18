@@ -15,14 +15,15 @@ MERGE_THRESHOLD = 2  # seconds
 BATCH_SIZE = 10
 
 
-def compile_vid(dict_list, output, merge_clips=True, combine_vids=True, res=None, logger=None, normalize=False, is_video=True):
+def compile_vid(dict_list, output, merge_clips=True, combine_vids=True, res=None, logger=None, normalize=False, is_video=True, padding=None):
     output_format = ".mp4" if is_video else ".mp3"
     try:
         with tempfile.TemporaryDirectory() as temp_dir:
             tempfiles = []
+            curr = None
             for n, elt in enumerate(dict_list):
                 filename = elt["filename"]
-                filename_stripped = str(elt["filename"]).split('/')[-1]
+                filename_stripped = os.path.basename(str(elt["filename"]))
                 timestamps = [(d["start"], d["end"])
                               for d in elt["timestamps"]]
 
@@ -37,6 +38,14 @@ def compile_vid(dict_list, output, merge_clips=True, combine_vids=True, res=None
                 except Exception as e:
                     print(f"{Fore.RED}Problem reading input video! Continuing...")
                     continue
+
+                if padding:
+                    before, after = padding
+                    if before < 0 or after < 0:
+                        raise Exception(
+                            "Clip padding cannot be a negative number!")
+                    for i, ts in enumerate(timestamps):
+                        timestamps[i] = (ts[0] - before, ts[1] + after)
 
                 if merge_clips:
                     i = 0

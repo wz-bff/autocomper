@@ -4,7 +4,7 @@ from cx_Freeze import setup, Executable
 base = 'Win32GUI' if sys.platform == 'win32' else None
 
 includefiles = ['ffmpeg/', 'img/', 'models/']
-includes = []
+includes = ['yt_dlp.utils._deprecated']
 excludes = ['Tkinter']
 packages = ['moviepy']
 
