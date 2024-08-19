@@ -795,7 +795,7 @@ class VideoProcessorApp:
 
     def remove_urls_from_list(self):
         self.uploaded_videos = [
-            x for x in self.uploaded_videos if not x.get_is_url()]
+            x for x in self.uploaded_videos if os.path.dirname(x.get_path()) != TEMP_DIR]
         self.update_listbox()
 
     def select_output_location(self):
