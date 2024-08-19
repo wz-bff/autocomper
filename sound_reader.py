@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import subprocess
-
+import sys
 import numpy as np
 # import onnx
 import onnxruntime as ort
@@ -11,7 +11,7 @@ from proglog import default_bar_logger
 
 SAMPLE_RATE = 32000
 
-is_windows = False
+is_windows = sys.platform.startswith('win')
 
 
 def subsample(frame: np.ndarray, scale_factor: int) -> np.ndarray:
