@@ -151,7 +151,7 @@ def is_valid_yt_dlp_url(base_url: str, max_quality: str = None):
                 f"An unexpected error occured while retrieving URLs. Please try again.\nError: {str(e)}")
 
 
-def download_video(url: str, filename: str, output_location: str, max_quality: str, logger, n_retries: int = 1) -> Tuple[bool, str]:
+def download_video(url: str, filename: str, output_location: str, max_quality: str, logger, n_retries: int = 3) -> Tuple[bool, str]:
     logger.reset_total_progress(100)
     os.makedirs(output_location, exist_ok=True)
 
@@ -166,16 +166,17 @@ def download_video(url: str, filename: str, output_location: str, max_quality: s
         'format': format_str,
         'quiet': True,
         'logger': logger,
-        'progress_hooks': [logger.hook]
+        'progress_hooks': [logger.hook],
+        'ffmpeg_location': FFMPEG_PATH
     }
 
     with open(os.devnull, 'w') as devnull:
         attempts = 0
         while attempts < n_retries:
-            # old_stdout = sys.stdout
-            # old_stderr = sys.stderr
-            # sys.stdout = devnull
-            # sys.stderr = devnull
+            old_stdout = sys.stdout
+            old_stderr = sys.stderr
+            sys.stdout = devnull
+            sys.stderr = devnull
 
             try:
                 with YoutubeDL(ydl_opts) as ydl:
@@ -210,9 +211,8 @@ def download_video(url: str, filename: str, output_location: str, max_quality: s
                 if attempts >= n_retries:
                     return False, str(e)
             finally:
-                # sys.stdout = old_stdout
-                # sys.stderr = old_stderr
-                pass
+                sys.stdout = old_stdout
+                sys.stderr = old_stderr
 
 
 def download_audio(url: str, filename: str, output_location: str, logger, n_retries: int = 10) -> Tuple[bool, str]:
@@ -230,6 +230,7 @@ def download_audio(url: str, filename: str, output_location: str, logger, n_retr
             'preferredquality': '192',
         }],
         'progress_hooks': [logger.hook],
+        'ffmpeg_location': FFMPEG_PATH
     }
 
     with open(os.devnull, 'w') as devnull:

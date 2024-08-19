@@ -240,6 +240,9 @@ class VideoProcessorApp:
 
         models = [item for item in models if item.endswith('.onnx')]
 
+        if len(models) == 0:
+            raise Exception(f"No models found in directory {self.models_dir}")
+
         ttk.Label(self.text_options_frame, text="Model:", font=(
             None, 10, "bold")).pack(pady=(0, 1))
 
@@ -790,6 +793,11 @@ class VideoProcessorApp:
         self.uploaded_videos = []
         self.update_listbox()
 
+    def remove_urls_from_list(self):
+        self.uploaded_videos = [
+            x for x in self.uploaded_videos if not x.get_is_url()]
+        self.update_listbox()
+
     def select_output_location(self):
         if self.combine_vids.get():
             output_formats = VIDEO_OUTPUT if self.is_video else AUDIO_OUTPUT
@@ -1105,6 +1113,8 @@ class VideoProcessorApp:
         self.disable_objects()
         self.final_bar.reset_total_progress(1)
 
+        self.reset_preferences_to_file()
+
         try:
             precision = self.precision.get()
             block_size = self.block_size.get()
@@ -1284,7 +1294,7 @@ class VideoProcessorApp:
                 pass
 
             if not self.keep_downloaded_vids.get():
-                self.clear_list()
+                self.remove_urls_from_list()
 
             self.root.update_idletasks()
             self.reenable_disabled_objects()
