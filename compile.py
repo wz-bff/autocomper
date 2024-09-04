@@ -34,7 +34,7 @@ def compile_vid(dict_list, output, merge_clips=True, combine_vids=True, res=None
 
                 try:
                     curr = VideoFileClip(
-                        filename, fps_source="fps") if is_video else AudioFileClip(filename)
+                        filename) if is_video else AudioFileClip(filename)
                 except Exception as e:
                     print(f"{Fore.RED}Problem reading input video! Continuing...")
                     continue

@@ -32,6 +32,7 @@ DEFAULT_SETTINGS = {
     'keep_downloaded_vids': False,
     'download_path': "No location selected!",
     'max_quality': "No Limit",
+    'max_download_speed': '0',
     'output_text_path': "No file selected!"
 }
 
@@ -112,6 +113,8 @@ class VideoProcessorApp:
         self.keep_downloaded_vids = tk.BooleanVar(value=False)
         self.download_video_path = tk.StringVar()
         self.max_quality = tk.StringVar()
+        self.max_download_speed = tk.IntVar()
+        
         self.output_text_path = tk.StringVar()
 
         self.keep_downloaded_vids.set(bool(
@@ -122,6 +125,9 @@ class VideoProcessorApp:
 
         self.max_quality.set(
             self.preferences.get("Settings", "max_quality"))
+        
+        self.max_download_speed.set(int(
+            self.preferences.get("Settings", "max_download_speed")))
 
         self.output_text_path.set(
             self.preferences.get("Settings", "output_text_path"))
@@ -855,6 +861,8 @@ class VideoProcessorApp:
         self.preferences.set(
             "Settings", "max_quality", self.max_quality.get())
         self.preferences.set(
+            "Settings", "max_download_speed", str(self.max_download_speed.get()))
+        self.preferences.set(
             "Settings", "output_text_path", self.output_text_path.get())
 
         with open(self.preferences_file, 'w') as configfile:
@@ -868,6 +876,12 @@ class VideoProcessorApp:
         ))
         self.max_quality.set(self.preferences.get(
             "Settings", "max_quality"
+        ))
+        self.max_download_speed.set(self.preferences.get(
+            "Settings", "max_download_speed"
+        ))
+        self.output_text_path.set(self.preferences.get(
+            "Settings", "output_text_path"
         ))
 
     def open_settings_modal(self):
@@ -883,15 +897,15 @@ class VideoProcessorApp:
         # Set the modal's position relative to the parent window
         modal.geometry(f"640x480+{x}+{y}")
 
-        def on_close_save():
+        def on_close_save(event=None):
             self.save_settings()
             on_close()
 
-        def on_close_no_save():
+        def on_close_no_save(event=None):
             self.reset_preferences_to_file()
             on_close()
 
-        def on_close():
+        def on_close(event=None):
             modal.destroy()
             self.root.grab_release()
 
@@ -970,6 +984,24 @@ class VideoProcessorApp:
         self.max_quality_dropdown.pack(side="left", padx=5, pady=5)
 
         max_quality_frame.pack()
+        
+        max_download_speed_frame = ttk.Frame(download_settings_frame)
+
+        self.max_download_speed_label = ttk.Label(
+            max_download_speed_frame, text="Max Download Speed (KB/S):", font=(None, 11, "bold"))
+
+        def check_number(char):
+            return char.isdigit() or char == ""
+        
+        vcmd = (self.root.register(check_number), '%P')
+
+        self.max_download_speed_entry = ttk.Entry(
+            max_download_speed_frame, textvariable=self.max_download_speed, validate='key', validatecommand=vcmd)
+
+        self.max_download_speed_label.pack(side="left", padx=5, pady=5)
+        self.max_download_speed_entry.pack(side="left", padx=5, pady=5)
+
+        max_download_speed_frame.pack()
 
         download_settings_frame.pack()
 
@@ -1025,10 +1057,16 @@ class VideoProcessorApp:
         ttk.Button(modal, text="Save Settings", command=on_close_save,
                    style="Custom.TButton").pack(pady=20)
 
+        modal.bind("<Return>", on_close_save)
+        modal.bind("<Escape>", on_close_no_save)
+
         folder_tooltip = CustomHovertip(
             self.download_location_button, 'Choose Output Location')
         clear_tooltip = CustomHovertip(
             self.clear_download_location_button, 'Clear Output Location')
+        
+        max_speed_tooltip = CustomHovertip(
+            self.max_download_speed_entry, 'Max allowable download speed in kilobytes per second. 0 means no limit.')
 
         folder_tooltip_two = CustomHovertip(
             self.text_location_button, 'Choose Timestamp TXT Output Location')
@@ -1040,6 +1078,7 @@ class VideoProcessorApp:
 
         modal.transient(self.root)
         modal.grab_set()
+        modal.focus_set()
         self.root.wait_window(modal)
 
     def handle_url_downloads(self):
@@ -1082,7 +1121,7 @@ class VideoProcessorApp:
 
             if media_type == 'video':
                 success, result = download_video(
-                    media_url, media_path, download_path, self.max_quality.get(), self.final_bar)
+                    media_url, media_path, download_path, self.max_quality.get(), self.max_download_speed.get(), self.final_bar)
                 if success:
                     if result:
                         self.uploaded_videos[i].set_path(result)
@@ -1095,7 +1134,7 @@ class VideoProcessorApp:
                         f"Failed to download {media_path}: {result}\nPress 'Process' again and it should start from where you left off.")
             elif media_type == 'audio':
                 success, result = download_audio(
-                    media_url, media_path, download_path, self.final_bar)
+                    media_url, media_path, download_path, self.max_download_speed.get(), self.final_bar)
                 if success:
                     self.uploaded_videos[i].set_path(result)
                     self.uploaded_videos[i].set_is_url(False)

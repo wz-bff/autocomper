@@ -151,7 +151,7 @@ def is_valid_yt_dlp_url(base_url: str, max_quality: str = None):
                 f"An unexpected error occured while retrieving URLs. Please try again.\nError: {str(e)}")
 
 
-def download_video(url: str, filename: str, output_location: str, max_quality: str, logger, n_retries: int = 3) -> Tuple[bool, str]:
+def download_video(url: str, filename: str, output_location: str, max_quality: str, max_speed: int, logger, n_retries: int = 3) -> Tuple[bool, str]:
     logger.reset_total_progress(100)
     os.makedirs(output_location, exist_ok=True)
 
@@ -169,6 +169,11 @@ def download_video(url: str, filename: str, output_location: str, max_quality: s
         'progress_hooks': [logger.hook],
         'ffmpeg_location': FFMPEG_PATH
     }
+    
+    if max_speed > 0:
+        ydl_opts['limit_rate'] = f"{max_speed}K"
+
+    print(ydl_opts)
 
     with open(os.devnull, 'w') as devnull:
         attempts = 0
@@ -215,7 +220,7 @@ def download_video(url: str, filename: str, output_location: str, max_quality: s
                 sys.stderr = old_stderr
 
 
-def download_audio(url: str, filename: str, output_location: str, logger, n_retries: int = 10) -> Tuple[bool, str]:
+def download_audio(url: str, filename: str, output_location: str, max_speed: int, logger, n_retries: int = 10) -> Tuple[bool, str]:
     logger.reset_total_progress(100)
 
     os.makedirs(output_location, exist_ok=True)
@@ -232,6 +237,9 @@ def download_audio(url: str, filename: str, output_location: str, logger, n_retr
         'progress_hooks': [logger.hook],
         'ffmpeg_location': FFMPEG_PATH
     }
+    
+    if max_speed > 0:
+        ydl_opts['limit_rate'] = f"{max_speed}K"
 
     with open(os.devnull, 'w') as devnull:
         attempts = 0
