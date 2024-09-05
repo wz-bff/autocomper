@@ -141,6 +141,21 @@ class VideoProcessorApp:
 
         self.is_video = True
 
+        def check_number(char):
+            return char.isdigit() or char == ""
+        
+        def check_decimal(char):
+            if char == "":
+                return True
+            try:
+                float(char)
+                return True
+            except ValueError:
+                return False
+        
+        self.num_check = (self.root.register(check_number), '%P')
+        self.decimal_check = (self.root.register(check_decimal), '%P')
+
         def toggle_media():
             if self.is_video:
                 self.toggle_button.config(text='Audio')
@@ -263,21 +278,21 @@ class VideoProcessorApp:
         ttk.Label(self.text_options_frame, text="Precision:",
                   font=(None, 10, "bold")).pack(pady=(10, 1))
         self.precision_entry = ttk.Entry(
-            self.text_options_frame, textvariable=self.precision)
+            self.text_options_frame, textvariable=self.precision, validate='key', validatecommand=self.num_check)
         self.precision_entry.pack()
 
         # Block Size Entry
         ttk.Label(self.text_options_frame, text="Block Size (CAUTION):", font=(
             None, 10, "bold")).pack(pady=(10, 1))
         self.block_size_entry = ttk.Entry(
-            self.text_options_frame, textvariable=self.block_size)
+            self.text_options_frame, textvariable=self.block_size, validate='key', validatecommand=self.num_check)
         self.block_size_entry.pack()
 
         # Threshold Entry
         ttk.Label(self.text_options_frame, text="Threshold:",
                   font=(None, 10, "bold")).pack(pady=(10, 1))
         self.threshold_entry = ttk.Entry(
-            self.text_options_frame, textvariable=self.threshold)
+            self.text_options_frame, textvariable=self.threshold, validate='key', validatecommand=self.decimal_check)
         self.threshold_entry.pack()
 
         self.text_options_frame.pack(side=tk.LEFT, expand=True, fill=tk.BOTH)
@@ -341,11 +356,11 @@ class VideoProcessorApp:
         # Create text input boxes (initially hidden)
         self.res_width_label = ttk.Label(self.container_frame, text="Width:")
         self.res_width_entry = ttk.Entry(
-            self.container_frame, textvariable=self.custom_resolution_width_var, width=5)
+            self.container_frame, textvariable=self.custom_resolution_width_var, width=5, validate='key', validatecommand=self.num_check)
 
         self.res_height_label = ttk.Label(self.container_frame, text="Height:")
         self.res_height_entry = ttk.Entry(
-            self.container_frame, textvariable=self.custom_resolution_height_var, width=5)
+            self.container_frame, textvariable=self.custom_resolution_height_var, width=5, validate='key', validatecommand=self.num_check)
 
         self.res_width_label.pack(side=tk.LEFT)
         self.res_width_entry.pack(side=tk.LEFT, padx=(0, 5))
@@ -364,12 +379,12 @@ class VideoProcessorApp:
         self.padding_before_label = ttk.Label(
             self.padding_container_frame, text="Before:")
         self.padding_before_entry = ttk.Entry(
-            self.padding_container_frame, textvariable=self.custom_padding_before, width=5)
+            self.padding_container_frame, textvariable=self.custom_padding_before, width=5, validate='key', validatecommand=self.num_check)
 
         self.padding_after_label = ttk.Label(
             self.padding_container_frame, text="After:")
         self.padding_after_entry = ttk.Entry(
-            self.padding_container_frame, textvariable=self.custom_padding_after, width=5)
+            self.padding_container_frame, textvariable=self.custom_padding_after, width=5, validate='key', validatecommand=self.num_check)
 
         self.padding_before_label.pack(side=tk.LEFT)
         self.padding_before_entry.pack(side=tk.LEFT, padx=(0, 5))
@@ -990,13 +1005,8 @@ class VideoProcessorApp:
         self.max_download_speed_label = ttk.Label(
             max_download_speed_frame, text="Max Download Speed (KB/S):", font=(None, 11, "bold"))
 
-        def check_number(char):
-            return char.isdigit() or char == ""
-        
-        vcmd = (self.root.register(check_number), '%P')
-
         self.max_download_speed_entry = ttk.Entry(
-            max_download_speed_frame, textvariable=self.max_download_speed, validate='key', validatecommand=vcmd)
+            max_download_speed_frame, textvariable=self.max_download_speed, validate='key', validatecommand=self.num_check)
 
         self.max_download_speed_label.pack(side="left", padx=5, pady=5)
         self.max_download_speed_entry.pack(side="left", padx=5, pady=5)
