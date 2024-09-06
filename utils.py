@@ -173,8 +173,6 @@ def download_video(url: str, filename: str, output_location: str, max_quality: s
     if max_speed > 0:
         ydl_opts['limit_rate'] = f"{max_speed}K"
 
-    print(ydl_opts)
-
     with open(os.devnull, 'w') as devnull:
         attempts = 0
         while attempts < n_retries:
