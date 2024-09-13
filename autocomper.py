@@ -379,12 +379,12 @@ class VideoProcessorApp:
         self.padding_before_label = ttk.Label(
             self.padding_container_frame, text="Before:")
         self.padding_before_entry = ttk.Entry(
-            self.padding_container_frame, textvariable=self.custom_padding_before, width=5, validate='key', validatecommand=self.num_check)
+            self.padding_container_frame, textvariable=self.custom_padding_before, width=5, validate='key', validatecommand=self.decimal_check)
 
         self.padding_after_label = ttk.Label(
             self.padding_container_frame, text="After:")
         self.padding_after_entry = ttk.Entry(
-            self.padding_container_frame, textvariable=self.custom_padding_after, width=5, validate='key', validatecommand=self.num_check)
+            self.padding_container_frame, textvariable=self.custom_padding_after, width=5, validate='key', validatecommand=self.decimal_check)
 
         self.padding_before_label.pack(side=tk.LEFT)
         self.padding_before_entry.pack(side=tk.LEFT, padx=(0, 5))
