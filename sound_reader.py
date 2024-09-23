@@ -1,10 +1,11 @@
 #!/usr/bin/env python
+import hashlib
 import subprocess
 import sys
 import numpy as np
 # import onnx
 import onnxruntime as ort
-from typing import Generator, Any
+from typing import Generator, Any, Dict, Tuple
 
 from utils import FFMPEG_PATH
 from proglog import default_bar_logger
@@ -134,6 +135,20 @@ def load_audio(file: str, sr: int, frame_count: int):
         raise subprocess.CalledProcessError(return_code, cmd)
 
 
+def hash_file(file_path, algorithm='sha256', chunk_size=8192) -> str:
+    hash_obj = hashlib.new(algorithm)
+    
+    with open(file_path, 'rb') as f:
+        while True:
+            chunk = f.read(chunk_size)
+            if not chunk:
+                break
+            hash_obj.update(chunk)
+    
+    return hash_obj.hexdigest()
+
+timestamps_dict: Dict[Tuple[str, int, int, float, str], Dict[str, Any]] = {}
+
 def get_timestamps(file, precision=100, block_size=600, threshold=0.90, focus_idx=58, model="bdetectionmodel_05_01_23", logger=None):
     # Input checking
     if precision < 0:
@@ -144,6 +159,10 @@ def get_timestamps(file, precision=100, block_size=600, threshold=0.90, focus_id
 
     if block_size < 0:
         raise Exception("Block size must be a positive number!")
+
+    file_hash = hash_file(file)
+    if (file_hash, precision, block_size, threshold, model) in timestamps_dict:
+        return timestamps_dict[(file_hash, precision, block_size, threshold, model)], True
 
     sess_options = ort.SessionOptions()
     sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
@@ -185,4 +204,5 @@ def get_timestamps(file, precision=100, block_size=600, threshold=0.90, focus_id
 
         offset += block_size
 
-    return info
+    timestamps_dict[(file_hash, precision, block_size, threshold, model)] = info
+    return info, False

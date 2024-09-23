@@ -1,5 +1,6 @@
 import sys
 from cx_Freeze import setup, Executable
+from config import VERSION
 
 base = 'Win32GUI' if sys.platform == 'win32' else None
 
@@ -10,7 +11,7 @@ packages = ['moviepy']
 
 setup(
     name='AutoComper',
-    version='1.1',
+    version=VERSION,
     description='Automatic Comp Creation Tool',
     author='wz-bff',
     options={'build_exe': {'includes': includes, 'excludes': excludes,

@@ -69,3 +69,4 @@ No Mac build yet. Sorry :(
 - Add multiprocessing to video writing + switch to using raw FFMPEG instead of moviepy for maximum speed
 - Add a "model download center" to avoid having to pack models in with the releases
 - Add "open output" button on completion
+- Add support for more input types (e.g. FLV)

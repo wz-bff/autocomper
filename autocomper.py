@@ -4,24 +4,24 @@ import re
 import shutil
 import sys
 import tempfile
+import threading
 import tkinter as tk
+import webbrowser
 from tkinter import filedialog, messagebox, ttk
 
 import sv_ttk
 from colorama import Fore, Style
 from kthread import KThread
-import threading
 from PIL import Image, ImageTk
 from proglog import ProgressBarLogger
 
 from compile import compile_vid
+from config import VERSION, REPO_URL
 from custom_tooltip import CustomHovertip
 from sound_reader import get_timestamps
-from utils import (
-    MediaUpload, get_bundle_filepath, is_valid_yt_dlp_url,
-    download_video, download_audio, DOWNLOAD_QUALITY_OPTIONS,
-    get_number_of_vids_in_playlist, FFMPEG_PATH
-)
+from utils import (DOWNLOAD_QUALITY_OPTIONS, FFMPEG_PATH, MediaUpload,
+                   download_audio, download_video, get_bundle_filepath,
+                   get_number_of_vids_in_playlist, is_valid_yt_dlp_url)
 
 VIDEO_INPUT = [("Video Files",  "*.mp4 *.avi *.mkv *.m4v *.mov")]
 VIDEO_OUTPUT = [("Video Files", "*.mp4"), ("All Files", "*.*")]
@@ -67,7 +67,9 @@ class VideoProcessorApp:
         self.root.geometry('1000x800')
 
         # Enforce minimum window size
-        self.root.resizable(False, True)
+        self.root.resizable(True, True)
+        
+        self.root.wm_minsize(875, 675)
 
         # Create a grid layout
         self.root.grid_rowconfigure(0, weight=1)
@@ -426,6 +428,8 @@ class VideoProcessorApp:
 
         self.cancel_button.grid(row=0, column=1, pady=(5, 20), padx=(2.5, 0))
 
+        self.cancel_button["state"] = tk.DISABLED
+
         # Progress bar for final render
         self.ui_bar = ttk.Progressbar(right_frame, orient='horizontal')
         self.ui_bar.pack(fill=tk.X, padx=10, pady=10)
@@ -510,10 +514,17 @@ class VideoProcessorApp:
             self.padding_before_entry,
             self.padding_after_entry
         ]
+        
+        self.enable_while_processing = [
+            self.cancel_button
+        ]
 
     def disable_objects(self):
         for elt in self.disable_while_processing:
             elt["state"] = tk.DISABLED
+        
+        for elt in self.enable_while_processing:
+            elt["state"] = tk.NORMAL
 
     def reenable_disabled_objects(self):
         for elt in self.disable_while_processing:
@@ -521,6 +532,9 @@ class VideoProcessorApp:
                 elt["state"] = "readonly"
             else:
                 elt["state"] = tk.NORMAL
+        
+        for elt in self.enable_while_processing:
+            elt["state"] = tk.DISABLED
 
     def populate_add_button(self):
         self.media_menu.delete(0, 'end')
@@ -1067,6 +1081,16 @@ class VideoProcessorApp:
         ttk.Button(modal, text="Save Settings", command=on_close_save,
                    style="Custom.TButton").pack(pady=20)
 
+        self.version_label = ttk.Label(
+            modal, text=f"Autocomper v{VERSION}", font=(None, 10, "normal"), cursor="hand2")
+
+        self.version_label.pack(side="bottom", padx=5, pady=(5, 15))
+        
+        def open_latest_release(event):
+            webbrowser.open_new(REPO_URL)
+
+        self.version_label.bind("<Button-1>", open_latest_release)
+
         modal.bind("<Return>", on_close_save)
         modal.bind("<Escape>", on_close_no_save)
 
@@ -1239,9 +1263,10 @@ class VideoProcessorApp:
                     input_video_path = input_video_path.get_path()
                     print(
                         f"{Fore.GREEN}[{i + 1}/{len(self.uploaded_videos)}]{Style.RESET_ALL} Getting timestamps for {os.path.basename(input_video_path)}")
-                    timestamps = get_timestamps(
+                    timestamps, used_existing_data = get_timestamps(
                         input_video_path, precision, block_size, threshold, 58, selected_model, self.final_bar)
                     dict_list.append(timestamps)
+                    if used_existing_data: print(f"{Fore.GREEN}Using existing timestamp data from previous run.")
                     num_found = len(timestamps['timestamps'])
                     if num_found > 1:
                         print(
