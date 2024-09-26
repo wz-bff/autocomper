@@ -162,7 +162,9 @@ def get_timestamps(file, precision=100, block_size=600, threshold=0.90, focus_id
 
     file_hash = hash_file(file)
     if (file_hash, precision, block_size, threshold, model) in timestamps_dict:
-        return timestamps_dict[(file_hash, precision, block_size, threshold, model)], True
+        previous_data = timestamps_dict[(file_hash, precision, block_size, threshold, model)]
+        previous_data['filename'] = file
+        return previous_data, True
 
     sess_options = ort.SessionOptions()
     sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
