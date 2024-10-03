@@ -164,6 +164,14 @@ def get_timestamps(file, precision=100, block_size=600, threshold=0.90, focus_id
     if (file_hash, precision, block_size, threshold, model) in timestamps_dict:
         previous_data = timestamps_dict[(file_hash, precision, block_size, threshold, model)]
         previous_data['filename'] = file
+        
+        # Simulate the progress bar increment
+        if logger:
+            bar_logger = default_bar_logger(logger)
+            block_count = len(list(load_audio(file, SAMPLE_RATE, SAMPLE_RATE * block_size)))
+            for _ in bar_logger.iter_bar(block=range(block_count)):
+                pass
+        
         return previous_data, True
 
     sess_options = ort.SessionOptions()
